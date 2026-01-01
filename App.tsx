@@ -1,44 +1,68 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import React, {useEffect} from 'react';
+import {NavigationContainer} from '@react-navigation/native';
+import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import {Provider} from 'react-redux';
+import {PersistGate} from 'redux-persist/integration/react';
+import {ActivityIndicator, View, StyleSheet} from 'react-native';
+import {store, persistor} from './src/redux/store';
+import {useAppSelector} from './src/redux/hooks';
+import {apiService} from './src/api/apiService';
+import {LoginScreen} from './src/screens/LoginScreen';
+import {RegisterScreen} from './src/screens/RegisterScreen';
+import {OnboardingScreen} from './src/screens/OnboardingScreen';
+import {HomeScreen} from './src/screens/HomeScreen';
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+const Stack = createNativeStackNavigator();
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+const Navigation = () => {
+  const {isAuthenticated, hasSeenOnboarding, token} = useAppSelector(state => state.auth);
 
-  return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
-    </SafeAreaProvider>
-  );
-}
-
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
+  useEffect(() => {
+    if (token) {
+      apiService.setToken(token);
+    }
+  }, [token]);
 
   return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{headerShown: false}}>
+        {!hasSeenOnboarding ? (
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        ) : isAuthenticated ? (
+          <Stack.Screen name="Home" component={HomeScreen} />
+        ) : (
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+          </>
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
   );
-}
+};
+
+const App = () => {
+  return (
+    <Provider store={store}>
+      <PersistGate
+        loading={
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#6C63FF" />
+          </View>
+        }
+        persistor={persistor}>
+        <Navigation />
+      </PersistGate>
+    </Provider>
+  );
+};
 
 const styles = StyleSheet.create({
-  container: {
+  loadingContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
   },
 });
 
