@@ -1,4 +1,45 @@
+/**
+ * LoginScreen.tsx
+ *
+ * Purpose:
+ * Authentication screen that handles user login with email and password.
+ * Features real-time email validation, inline error feedback, and optimized
+ * form handling with Formik. Demonstrates best practices for authentication
+ * flows in React Native applications.
+ *
+ * Key Features:
+ * - Real-time email existence checking with debounced API calls
+ * - Formik-based form management with Yup validation
+ * - Inline error display (no alerts/modals)
+ * - Optimistic UI updates with visual feedback
+ * - Cross-platform keyboard handling
+ * - Redux state management for authentication
+ *
+ * Learning Focus:
+ * - React Navigation integration
+ * - Redux Toolkit async actions (login thunk)
+ * - Form validation patterns
+ * - Debounced input handling
+ * - Platform-specific keyboard behavior
+ * - TypeScript with React Native
+ */
+
 import React, {useEffect, useState, useMemo} from 'react';
+
+/**
+ * React Native Core Components
+ *
+ * View: Container component for layout
+ * Text: Display text content
+ * TextInput: Input field for user data entry
+ * TouchableOpacity: Pressable component with opacity feedback
+ * StyleSheet: Optimized styling API
+ * ActivityIndicator: Loading spinner
+ * KeyboardAvoidingView: Adjusts view position when keyboard appears
+ * Platform: Access platform-specific values (iOS vs Android)
+ * ScrollView: Scrollable container
+ * Alert: Native alert dialogs (minimal usage in this screen)
+ */
 import {
   View,
   Text,
@@ -11,14 +52,68 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+
+/**
+ * Formik: Form management library
+ * - Handles form state, validation, and submission
+ * - Reduces boilerplate for form handling
+ * - Integrates with Yup for schema validation
+ */
 import {Formik} from 'formik';
+
+/**
+ * Yup: Schema validation library
+ * - Defines validation rules declaratively
+ * - Works seamlessly with Formik
+ * - Provides clear error messages
+ */
 import * as Yup from 'yup';
+
+/**
+ * Redux Typed Hooks
+ *
+ * useAppDispatch: Typed version of useDispatch for dispatching actions
+ * useAppSelector: Typed version of useSelector for reading state
+ *
+ * These hooks provide TypeScript autocomplete and type checking
+ */
 import {useAppDispatch, useAppSelector} from '../redux/hooks';
+
+/**
+ * Redux Actions
+ *
+ * login: Async thunk action that authenticates user with backend
+ * clearError: Action to clear authentication errors from state
+ */
 import {login, clearError} from '../redux/slices/authSlice';
+
+/**
+ * Custom Hooks
+ *
+ * useDebounce: Delays API calls until user stops typing
+ * - Reduces unnecessary network requests
+ * - Improves performance and UX
+ */
 import {useDebounce} from '../hooks/useDebounce';
+
+/**
+ * API Service
+ *
+ * apiService: Centralized API client
+ * - Handles HTTP requests to backend
+ * - Provides type-safe API methods
+ */
 import {apiService} from '../api/apiService';
 
-// Validation Schema
+/**
+ * Validation Schema
+ *
+ * Defines validation rules for login form using Yup.
+ * - Email must be valid format and required
+ * - Password must be at least 6 characters and required
+ *
+ * Formik automatically applies these rules and shows errors
+ */
 const loginSchema = Yup.object().shape({
   email: Yup.string()
     .email('Invalid email address')
@@ -28,20 +123,101 @@ const loginSchema = Yup.object().shape({
     .required('Password is required'),
 });
 
+/**
+ * Component Props Interface
+ *
+ * Defines the props that LoginScreen receives from React Navigation.
+ * Navigation prop is typed as 'any' for simplicity, but could be strongly
+ * typed using NavigationProp from @react-navigation/native
+ */
 interface LoginScreenProps {
   navigation: any;
 }
 
+/**
+ * LoginScreen Component
+ *
+ * Main authentication screen for existing users to log in.
+ *
+ * State Management:
+ * - Local state for form fields and UI feedback
+ * - Redux state for authentication status (isLoading, error)
+ * - Formik state for form validation
+ *
+ * Performance Optimizations:
+ * - useMemo for expensive calculations (button disabled state)
+ * - Debounced email checking to reduce API calls
+ * - Optimistic UI updates with visual feedback
+ *
+ * Navigation:
+ * - Receives navigation prop from React Navigation stack
+ * - Navigates to Register screen when user wants to sign up
+ * - Auto-redirects to Home after successful login (handled by navigation config)
+ */
 export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
+  /**
+   * Redux Integration
+   *
+   * useAppDispatch: Get dispatch function to trigger Redux actions
+   * - Used to dispatch login action and clearError action
+   *
+   * useAppSelector: Select data from Redux store
+   * - isLoading: Shows when login request is in progress
+   * - error: Contains error message from failed login attempts
+   *
+   * This pattern separates concerns: local state for UI, Redux for API state
+   */
   const dispatch = useAppDispatch();
   const {isLoading, error} = useAppSelector(state => state.auth);
+
+  /**
+   * Local State Management
+   *
+   * email: Tracks email input for debounced API check
+   * - Separate from Formik value to enable debouncing
+   *
+   * emailCheckMessage: Feedback message for email validation
+   * - Shows if email exists in database
+   * - Provides real-time feedback before form submission
+   *
+   * isCheckingEmail: Loading state for email check API call
+   * - Shows spinner while checking email
+   *
+   * loginError: Field-specific errors from login attempt
+   * - Displayed inline below respective input fields
+   * - Better UX than alert modals
+   *
+   * debouncedEmail: Delayed email value for API calls
+   * - Prevents API call on every keystroke
+   * - Waits 800ms after user stops typing
+   */
   const [email, setEmail] = useState('');
   const [emailCheckMessage, setEmailCheckMessage] = useState('');
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [loginError, setLoginError] = useState<{email?: string; password?: string}>({});
   const debouncedEmail = useDebounce(email, 800);
 
-  // Check if email exists when debounced email changes
+  /**
+   * Email Existence Check Effect
+   *
+   * Purpose: Verify if email is registered before form submission
+   *
+   * Dependencies: [debouncedEmail]
+   * - Runs when user stops typing for 800ms
+   *
+   * Flow:
+   * 1. Validates email format (must contain @)
+   * 2. Sets loading state
+   * 3. Calls API to check if email exists
+   * 4. Shows warning if email not found
+   * 5. Clears message if email exists
+   *
+   * Error Handling:
+   * - Silently fails (logs error, clears message)
+   * - Doesn't block login attempt
+   *
+   * This provides early feedback without being intrusive
+   */
   useEffect(() => {
     const checkEmailExists = async () => {
       if (!debouncedEmail || !debouncedEmail.includes('@')) {
@@ -68,10 +244,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
     checkEmailExists();
   }, [debouncedEmail]);
 
-  // Network test removed - app will connect directly to backend via API service
-  // If connection fails, errors will be shown inline in the login form
-
-  // Handle errors from Redux state - convert to inline errors instead of alerts
+  /**
+   * Redux Error Handler Effect
+   *
+   * Purpose: Convert Redux errors to inline field errors
+   *
+   * Dependencies: [error, dispatch]
+   * - Runs when error state changes in Redux
+   *
+   * Flow:
+   * 1. Check if error exists
+   * 2. Parse error message to determine which field failed
+   * 3. Set appropriate inline error message
+   * 4. Clear error from Redux state
+   *
+   * Error Classification:
+   * - Email errors: "email", "not found"
+   * - Password errors: "password", "incorrect"
+   * - Default: Show as password error (security best practice)
+   *
+   * UX Note: Inline errors are better than alerts because:
+   * - Users can see error while fixing it
+   * - No modal dismissal required
+   * - Clearer which field has the issue
+   */
   React.useEffect(() => {
     if (error) {
       console.error('[LoginScreen] Auth error:', error);
@@ -89,6 +285,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
     }
   }, [error, dispatch]);
 
+  /**
+   * Login Handler
+   *
+   * Purpose: Process login form submission
+   *
+   * Parameters:
+   * - values: Formik form values {email, password}
+   *
+   * Flow:
+   * 1. Clear previous errors
+   * 2. Dispatch login async thunk action
+   * 3. Wait for response (unwrap throws on rejection)
+   * 4. On success: Redux updates auth state, navigation redirects automatically
+   * 5. On failure: Parse error and show inline message
+   *
+   * Error Parsing Strategy:
+   * - Check error message for keywords
+   * - Route to appropriate field error
+   * - Default to password field (security: don't reveal if email exists)
+   *
+   * async/await Pattern:
+   * - Easier to read than promise chains
+   * - try/catch for error handling
+   * - unwrap() converts rejected thunk to thrown error
+   */
   const handleLogin = async (values: {email: string; password: string}) => {
     console.log('🔵 Login button pressed');
     console.log('📧 Email:', values.email);
@@ -133,7 +354,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
     }
   };
 
-
+  /**
+   * Render Method - Component Layout
+   *
+   * Layout Structure:
+   * 1. KeyboardAvoidingView: Root container handling keyboard
+   * 2. ScrollView: Scrollable content area
+   * 3. Hero Section: App branding and logo
+   * 4. Welcome Section: Screen title and description
+   * 5. Formik Form: Email and password inputs with validation
+   *
+   * Keyboard Handling:
+   * - iOS: Uses 'padding' behavior (adjusts padding when keyboard appears)
+   * - Android: Uses 'height' behavior (adjusts height when keyboard appears)
+   * - keyboardShouldPersistTaps="handled": Allows tapping outside to dismiss keyboard
+   *
+   * Platform-Specific Behavior:
+   * - Platform.OS checks ensure proper keyboard behavior per platform
+   * - iOS and Android handle keyboard differently
+   */
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -144,7 +383,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={styles.content}>
-            {/* Hero Section */}
+            {/* Hero Section: App branding with logo and tagline */}
             <View style={styles.hero}>
               <View style={styles.logoContainer}>
                 <View style={styles.logoGlow} />
@@ -154,7 +393,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
               <Text style={styles.tagline}>AI-Powered Task Management</Text>
             </View>
 
-            {/* Welcome Section */}
+            {/* Welcome Section: Screen context for user */}
             <View style={styles.welcomeSection}>
               <Text style={styles.title}>Welcome Back!</Text>
               <Text style={styles.subtitle}>
@@ -162,13 +401,47 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
               </Text>
             </View>
 
-            {/* Form with Formik */}
+            {/**
+             * Formik Form Component
+             *
+             * Formik manages all form state automatically:
+             * - values: Current form field values
+             * - errors: Validation errors from Yup schema
+             * - touched: Tracks which fields have been interacted with
+             * - handleChange: Updates field values
+             * - handleBlur: Marks field as touched
+             * - handleSubmit: Triggers form submission
+             *
+             * initialValues: Starting state for form
+             * validationSchema: Yup schema for validation
+             * onSubmit: Handler called when form is valid and submitted
+             *
+             * Validation Strategy:
+             * - Validates on blur (when user leaves field)
+             * - Shows errors only after field is touched
+             * - Prevents submission if validation fails
+             */}
             <Formik
               initialValues={{email: '', password: ''}}
               validationSchema={loginSchema}
               onSubmit={handleLogin}>
               {({handleChange, handleBlur, handleSubmit, values, errors, touched, isValid}) => {
-                // Memoize error checks to prevent unnecessary re-renders
+                /**
+                 * Performance Optimization: useMemo
+                 *
+                 * Problem: Button disabled calculation is complex and runs on every render
+                 * Solution: Memoize the calculation to only run when dependencies change
+                 *
+                 * Button Disabled Logic:
+                 * - Disabled if loading
+                 * - Disabled if any validation errors exist
+                 * - Disabled if any API check errors exist
+                 * - Disabled if form is empty
+                 *
+                 * Dependencies: All values used in calculation
+                 * - If any dependency changes, recalculate
+                 * - Otherwise, use cached value
+                 */
                 const isButtonDisabled = useMemo(() => {
                   const hasEmailError = Boolean((touched.email && errors.email) || loginError.email || emailCheckMessage);
                   const hasPasswordError = Boolean((touched.password && errors.password) || loginError.password);
@@ -176,17 +449,50 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
                   return Boolean(isLoading || hasEmailError || hasPasswordError || isFormEmpty);
                 }, [touched.email, errors.email, loginError.email, emailCheckMessage, touched.password, errors.password, loginError.password, values.email, values.password, isLoading]);
 
+                // Helper variables for error state (used for styling)
                 const hasEmailError = Boolean((touched.email && errors.email) || loginError.email || emailCheckMessage);
                 const hasPasswordError = Boolean((touched.password && errors.password) || loginError.password);
 
                 return (
                 <View style={styles.form}>
+                  {/**
+                   * Email Input Field
+                   *
+                   * Features:
+                   * - Real-time validation with visual feedback
+                   * - Loading indicator during email check
+                   * - Success checkmark when email is valid
+                   * - Dynamic styling based on validation state
+                   *
+                   * Visual States:
+                   * - Default: Gray border
+                   * - Error: Red border (validation failed or login error)
+                   * - Warning: Orange border (email not found)
+                   * - Success: Green border with checkmark
+                   *
+                   * TextInput Props:
+                   * - autoCapitalize="none": Prevent auto-capitalization for emails
+                   * - keyboardType="email-address": Show email keyboard
+                   * - editable: Disable during loading to prevent changes
+                   *
+                   * onChangeText Logic:
+                   * 1. Update Formik value (for validation)
+                   * 2. Update local state (for debounced check)
+                   * 3. Clear previous errors (fresh validation)
+                   *
+                   * Error Display Priority:
+                   * 1. Formik validation errors (format issues)
+                   * 2. Email check warnings (not registered)
+                   * 3. Login errors (authentication failed)
+                   */}
                   <View style={styles.inputContainer}>
                     <View style={styles.labelRow}>
                       <Text style={styles.inputLabel}>Email</Text>
+                      {/* Show loading spinner while checking email */}
                       {isCheckingEmail && (
                         <ActivityIndicator size="small" color="#6C63FF" />
                       )}
+                      {/* Show success checkmark when email is valid */}
                       {!isCheckingEmail && values.email && !errors.email && !emailCheckMessage && !loginError.email && values.email.includes('@') && (
                         <Text style={styles.successIndicator}>✓</Text>
                       )}
@@ -215,6 +521,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
                       keyboardType="email-address"
                       editable={!isLoading}
                     />
+                    {/* Conditional error/warning message display */}
                     {touched.email && errors.email && (
                       <Text style={styles.errorText}>{errors.email}</Text>
                     )}
@@ -226,9 +533,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
                     )}
                   </View>
 
+                  {/**
+                   * Password Input Field
+                   *
+                   * Features:
+                   * - Secure text entry (hides characters)
+                   * - Success indicator when meets minimum length
+                   * - Dynamic border color based on state
+                   *
+                   * TextInput Props:
+                   * - secureTextEntry: Hides password characters
+                   * - editable: Disabled during login request
+                   *
+                   * Validation:
+                   * - Minimum 6 characters (enforced by Yup schema)
+                   * - Shows error only after field is touched
+                   *
+                   * Error Clearing:
+                   * - Clears previous login errors when user types
+                   * - Provides fresh start for each attempt
+                   */}
                   <View style={styles.inputContainer}>
                     <View style={styles.labelRow}>
                       <Text style={styles.inputLabel}>Password</Text>
+                      {/* Success indicator when password meets requirements */}
                       {values.password && !errors.password && !loginError.password && values.password.length >= 6 && (
                         <Text style={styles.successIndicator}>✓</Text>
                       )}
@@ -254,6 +582,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
                       secureTextEntry
                       editable={!isLoading}
                     />
+                    {/* Conditional error message display */}
                     {touched.password && errors.password && (
                       <Text style={styles.errorText}>{errors.password}</Text>
                     )}
@@ -262,6 +591,28 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
                     )}
                   </View>
 
+                  {/**
+                   * Submit Button
+                   *
+                   * Button States:
+                   * - Enabled: Form is valid and not loading
+                   * - Disabled: Has errors, loading, or form incomplete
+                   * - Loading: Shows spinner during API call
+                   *
+                   * TouchableOpacity Props:
+                   * - disabled: Prevents interaction when button is disabled
+                   * - activeOpacity: Controls opacity on press (1 = no change when disabled)
+                   * - onPress: Guard check ensures no action when disabled
+                   *
+                   * Visual Feedback:
+                   * - Opacity reduces when disabled
+                   * - Spinner replaces text during loading
+                   * - Arrow icon for visual direction
+                   *
+                   * Accessibility:
+                   * - Disabled state prevents accidental submissions
+                   * - Loading state indicates progress
+                   */}
                   <TouchableOpacity
                     style={[
                       styles.button,
@@ -280,6 +631,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
                     )}
                   </TouchableOpacity>
 
+                  {/**
+                   * Navigation Link to Register Screen
+                   *
+                   * React Navigation Usage:
+                   * - navigation.navigate('Register'): Pushes Register screen onto stack
+                   * - Route name must match the name defined in navigation stack
+                   *
+                   * Disabled During Loading:
+                   * - Prevents navigation while login is in progress
+                   * - Ensures user completes current action first
+                   *
+                   * This demonstrates basic React Navigation stack navigation pattern
+                   */}
                   <TouchableOpacity
                     style={styles.linkButton}
                     onPress={() => navigation.navigate('Register')}
@@ -299,6 +663,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
   );
 };
 
+/**
+ * StyleSheet
+ *
+ * React Native's optimized way to define styles.
+ * - Styles are converted to native code for better performance
+ * - Type checking in TypeScript
+ * - Autocomplete support in IDE
+ *
+ * Layout Patterns:
+ * - container: flex: 1 fills available space
+ * - ScrollView contentContainerStyle: Controls scroll area styling
+ * - KeyboardAvoidingView: Adjusts for keyboard automatically
+ *
+ * Styling Techniques:
+ * - Shadow props: iOS uses shadowColor/shadowOffset/etc
+ * - elevation: Android uses elevation for shadows
+ * - borderRadius: Rounded corners for modern UI
+ * - Dynamic styles: Applied based on state (inputError, inputSuccess)
+ *
+ * Color Palette:
+ * - Primary: #6C63FF (purple/blue brand color)
+ * - Error: #F44336 (red for errors)
+ * - Warning: #FF9800 (orange for warnings)
+ * - Success: #4CAF50 (green for validation success)
+ */
 const styles = StyleSheet.create({
   container: {
     flex: 1,

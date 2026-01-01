@@ -1,4 +1,39 @@
+/**
+ * RegisterScreen.tsx
+ *
+ * Purpose:
+ * User registration screen for creating new accounts with email and password.
+ * Implements comprehensive form validation, real-time email availability checking,
+ * and strong password requirements for security.
+ *
+ * Key Features:
+ * - Three-field registration form (email, password, confirm password)
+ * - Real-time email availability checking with debounced API calls
+ * - Strong password validation (12+ chars, uppercase, lowercase, number)
+ * - Password confirmation matching
+ * - Inline error feedback with visual indicators
+ * - Feature showcase section (AI Assistant, Smart Priority, Voice Input)
+ * - Cross-platform keyboard handling
+ *
+ * Security Features:
+ * - Password strength requirements enforced client and server-side
+ * - Email uniqueness verification before submission
+ * - No password hints shown (security best practice)
+ *
+ * Learning Focus:
+ * - Advanced Formik usage with multiple fields
+ * - Complex Yup validation schemas (regex, field matching)
+ * - Debounced API calls for UX optimization
+ * - Password strength validation patterns
+ * - Multi-step form validation feedback
+ */
+
 import React, {useState, useEffect, useMemo} from 'react';
+
+/**
+ * React Native Core Components
+ * Same as LoginScreen but without Alert (uses inline errors exclusively)
+ */
 import {
   View,
   Text,
@@ -10,14 +45,65 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+
+/**
+ * Form Management Libraries
+ * Formik + Yup for declarative form handling and validation
+ */
 import {Formik} from 'formik';
 import * as Yup from 'yup';
+
+/**
+ * Redux Typed Hooks
+ * Type-safe Redux integration for TypeScript
+ */
 import {useAppDispatch, useAppSelector} from '../redux/hooks';
+
+/**
+ * Redux Actions
+ * register: Async thunk for user registration API call
+ * clearError: Clears errors from Redux state
+ */
 import {register, clearError} from '../redux/slices/authSlice';
+
+/**
+ * Custom Hooks
+ * useDebounce: Delays execution until user stops typing (800ms delay)
+ */
 import {useDebounce} from '../hooks/useDebounce';
+
+/**
+ * API Service
+ * Centralized API client for backend communication
+ */
 import {apiService} from '../api/apiService';
 
-// Validation Schema
+/**
+ * Validation Schema
+ *
+ * Advanced Yup schema with multiple validation rules:
+ *
+ * Email:
+ * - Must be valid email format
+ * - Required field
+ *
+ * Password:
+ * - Minimum 12 characters (stronger than login's 6)
+ * - Regex pattern requires:
+ *   - At least one lowercase letter (?=.*[a-z])
+ *   - At least one uppercase letter (?=.*[A-Z])
+ *   - At least one digit (?=.*\d)
+ * - Required field
+ *
+ * Confirm Password:
+ * - Must match password field (using Yup.ref)
+ * - oneOf enforces exact match
+ * - Required field
+ *
+ * Yup.ref Usage:
+ * - Yup.ref('password') creates reference to password field value
+ * - Automatically validates when either field changes
+ */
 const registerSchema = Yup.object().shape({
   email: Yup.string()
     .email('Invalid email address')
@@ -34,20 +120,70 @@ const registerSchema = Yup.object().shape({
     .required('Please confirm your password'),
 });
 
+/**
+ * Component Props Interface
+ */
 interface RegisterScreenProps {
   navigation: any;
 }
 
+/**
+ * RegisterScreen Component
+ *
+ * New user registration flow with comprehensive validation.
+ *
+ * State Management Pattern:
+ * - Local state: UI feedback, form inputs, email checking
+ * - Redux state: Authentication status, API errors
+ * - Formik state: Form values, validation errors, touched fields
+ *
+ * Email Availability Check:
+ * - Debounced to prevent excessive API calls
+ * - Shows warning if email is already registered
+ * - Encourages user to login instead
+ *
+ * Password Requirements:
+ * - Stricter than login (12 vs 6 characters)
+ * - Requires character diversity for security
+ * - Visual hint displayed below password field
+ *
+ * Navigation After Registration:
+ * - Successful registration auto-logs user in
+ * - Navigation stack automatically redirects to Home
+ */
 export const RegisterScreen: React.FC<RegisterScreenProps> = ({navigation}) => {
+  /**
+   * Redux Integration
+   * Same pattern as LoginScreen
+   */
   const dispatch = useAppDispatch();
   const {isLoading, error} = useAppSelector(state => state.auth);
+
+  /**
+   * Local State Management
+   *
+   * email: For debounced email availability check
+   * emailCheckMessage: Shows if email is taken or available
+   * isCheckingEmail: Loading state for email check
+   * registerError: Field-specific registration errors
+   * debouncedEmail: Triggers check 800ms after user stops typing
+   */
   const [email, setEmail] = useState('');
   const [emailCheckMessage, setEmailCheckMessage] = useState('');
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [registerError, setRegisterError] = useState<{email?: string; password?: string}>({});
   const debouncedEmail = useDebounce(email, 800);
 
-  // Check if email is already registered when debounced email changes
+  /**
+   * Email Uniqueness Check Effect
+   *
+   * Purpose: Verify email is not already registered
+   *
+   * Difference from LoginScreen:
+   * - Opposite logic: warns if email EXISTS (not available)
+   * - Shows success message if email is available
+   * - Encourages switching to login if already registered
+   */
   useEffect(() => {
     const checkEmailUnique = async () => {
       if (!debouncedEmail || !debouncedEmail.includes('@')) {

@@ -1,4 +1,19 @@
+/**
+ * StatusDropdown Component
+ *
+ * A bottom sheet modal for selecting task status. Displays all available status
+ * options with icons, colors, and labels. Highlights the currently selected status.
+ *
+ * This component demonstrates:
+ * - Bottom sheet pattern (modal slides from bottom)
+ * - List rendering with .map()
+ * - Conditional styling based on selection state
+ * - Centralized configuration (STATUS_OPTIONS array)
+ * - Slide-up/down animations
+ */
+
 import React, {useEffect, useRef} from 'react';
+// Modal components and animation tools
 import {
   View,
   Text,
@@ -12,6 +27,10 @@ import {
 import {TaskStatus} from '../types';
 import {COLORS} from '../utils/colors';
 
+/**
+ * Status option configuration interface
+ * Defines the structure for each status choice
+ */
 interface StatusOption {
   value: TaskStatus;
   label: string;
@@ -19,27 +38,46 @@ interface StatusOption {
   color: string;
 }
 
+/**
+ * Available status options
+ *
+ * Centralized configuration makes it easy to:
+ * - Add new statuses
+ * - Update colors and icons
+ * - Maintain consistency across app
+ *
+ * Each status has distinct visual identity (icon + color)
+ */
 const STATUS_OPTIONS: StatusOption[] = [
   {
     value: TaskStatus.PENDING,
     label: 'Pending',
     icon: '⏳',
-    color: '#FF9500',
+    color: '#FF9500', // Orange
   },
   {
     value: TaskStatus.IN_PROGRESS,
     label: 'In Progress',
     icon: '🚀',
-    color: '#007AFF',
+    color: '#007AFF', // Blue
   },
   {
     value: TaskStatus.COMPLETED,
     label: 'Completed',
     icon: '✅',
-    color: '#34C759',
+    color: '#34C759', // Green
   },
 ];
 
+/**
+ * Props interface for StatusDropdown component
+ *
+ * @interface StatusDropdownProps
+ * @property {boolean} visible - Controls modal visibility
+ * @property {TaskStatus} currentStatus - Currently selected status (highlighted in UI)
+ * @property {(status: TaskStatus) => void} onSelect - Called when user selects a status
+ * @property {() => void} onClose - Called when modal should close
+ */
 interface StatusDropdownProps {
   visible: boolean;
   currentStatus: TaskStatus;
@@ -47,17 +85,39 @@ interface StatusDropdownProps {
   onClose: () => void;
 }
 
+/**
+ * StatusDropdown - Bottom sheet for status selection
+ *
+ * @component
+ * @example
+ * <StatusDropdown
+ *   visible={showPicker}
+ *   currentStatus={task.status}
+ *   onSelect={(status) => updateStatus(status)}
+ *   onClose={() => setShowPicker(false)}
+ * />
+ */
 export const StatusDropdown: React.FC<StatusDropdownProps> = ({
   visible,
   currentStatus,
   onSelect,
   onClose,
 }) => {
+  /**
+   * Animation values for bottom sheet
+   * - translateY: Vertical position (300 = offscreen, 0 = visible)
+   * - opacity: Backdrop transparency
+   */
   const translateY = useRef(new Animated.Value(300)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
+  /**
+   * Slide animation effect
+   * Responds to visibility changes to show/hide bottom sheet
+   */
   useEffect(() => {
     if (visible) {
+      // Slide up from bottom
       Animated.parallel([
         Animated.spring(translateY, {
           toValue: 0,
@@ -73,6 +133,7 @@ export const StatusDropdown: React.FC<StatusDropdownProps> = ({
         }),
       ]).start();
     } else {
+      // Slide down and hide
       Animated.parallel([
         Animated.timing(translateY, {
           toValue: 300,
@@ -90,6 +151,10 @@ export const StatusDropdown: React.FC<StatusDropdownProps> = ({
     }
   }, [visible]);
 
+  /**
+   * Handle status selection
+   * Calls onSelect with chosen status, then closes modal
+   */
   const handleSelect = (status: TaskStatus) => {
     onSelect(status);
     onClose();

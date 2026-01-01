@@ -1,4 +1,30 @@
+/**
+ * ChatModal Component
+ *
+ * A comprehensive chat interface modal for AI assistant interaction. Features message
+ * history, voice input, typing indicators, and smooth animations. Demonstrates advanced
+ * list rendering and state management with Redux.
+ *
+ * This component demonstrates:
+ * - FlatList for efficient message list rendering
+ * - Redux state management (useAppSelector, useAppDispatch)
+ * - Custom hooks (useVoiceInput)
+ * - Voice input integration
+ * - TextInput for multi-line chat input
+ * - Ref usage for programmatic scrolling (flatListRef)
+ * - useEffect with dependencies for side effects
+ * - Complex state synchronization (voice input → text input → message send)
+ * - Loading states (typing indicator)
+ * - Error handling and display
+ * - Auto-scrolling to latest message
+ * - KeyboardAvoidingView for input visibility
+ */
+
 import React, {useState, useRef, useEffect} from 'react';
+// FlatList: High-performance list component (virtualizes items for efficiency)
+// - Only renders visible items
+// - Recycles item components
+// - Much better than ScrollView for long lists
 import {
   View,
   Text,
@@ -13,32 +39,100 @@ import {
   TouchableWithoutFeedback,
   Dimensions,
 } from 'react-native';
+// Redux hooks for state management
 import {useAppDispatch, useAppSelector} from '../redux/hooks';
 import {sendMessage, addUserMessage, clearError} from '../redux/slices/chatSlice';
+// Child components
 import {ChatMessage} from './ChatMessage';
 import {TypingIndicator} from './TypingIndicator';
 import {COLORS} from '../utils/colors';
+// Custom hook for voice input functionality
 import {useVoiceInput} from '../hooks/useVoiceInput';
 
+/**
+ * Modal sizing - 65% of screen height
+ * Slightly smaller than AddTaskModal (75%) to leave room for context
+ */
 const {height: SCREEN_HEIGHT} = Dimensions.get('window');
 const MODAL_HEIGHT = SCREEN_HEIGHT * 0.65;
 
+/**
+ * Props interface for ChatModal
+ *
+ * @interface ChatModalProps
+ * @property {boolean} visible - Controls modal visibility
+ * @property {() => void} onClose - Callback to close modal
+ */
 interface ChatModalProps {
   visible: boolean;
   onClose: () => void;
 }
 
+/**
+ * ChatModal - AI assistant chat interface
+ *
+ * @component
+ * @example
+ * <ChatModal
+ *   visible={showChat}
+ *   onClose={() => setShowChat(false)}
+ * />
+ */
 export const ChatModal: React.FC<ChatModalProps> = ({visible, onClose}) => {
+  /**
+   * Local state for text input
+   * Controlled input pattern: value={inputText} onChange={setInputText}
+   */
   const [inputText, setInputText] = useState('');
+
+  /**
+   * Ref for FlatList to control scrolling
+   *
+   * useRef<FlatList>(null):
+   * - Generic type FlatList for TypeScript
+   * - Initialize as null
+   * - Will be set when FlatList mounts (ref={flatListRef})
+   * - Used for: flatListRef.current?.scrollToEnd()
+   */
   const flatListRef = useRef<FlatList>(null);
+
+  /**
+   * Redux hooks
+   *
+   * dispatch: Sends actions to Redux store
+   * useAppSelector: Reads state from Redux store
+   *   - messages: Array of chat messages
+   *   - isTyping: Boolean indicating if AI is responding
+   *   - error: Error message if request failed
+   */
   const dispatch = useAppDispatch();
   const {messages, isTyping, error} = useAppSelector(state => state.chat);
 
+  /**
+   * Animation values for modal and voice recording
+   */
   const slideAnim = useRef(new Animated.Value(MODAL_HEIGHT)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const microphoneScale = useRef(new Animated.Value(1)).current;
   const recordingPulse = useRef(new Animated.Value(1)).current;
 
+  /**
+   * Custom hook for voice input
+   *
+   * Returns:
+   * - isRecording: Boolean indicating recording state
+   * - recognizedText: Transcribed text from speech
+   * - error: Voice input error
+   * - isAvailable: Whether device supports voice input
+   * - startRecording: Function to start recording
+   * - stopRecording: Function to stop recording
+   * - clearText: Function to clear recognized text
+   *
+   * This demonstrates custom hook pattern:
+   * - Encapsulates complex logic
+   * - Reusable across components
+   * - Clean API with destructuring
+   */
   const {
     isRecording,
     recognizedText,

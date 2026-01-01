@@ -1,4 +1,37 @@
+/**
+ * AddTaskModal Component
+ *
+ * A comprehensive bottom sheet modal for creating new tasks. Features form validation,
+ * date picking, keyboard handling, and smooth animations. This is the most complex
+ * modal in the app, demonstrating advanced React Native patterns.
+ *
+ * This component demonstrates:
+ * - Bottom sheet modal pattern with slide-up animation
+ * - Form handling with Formik (popular React form library)
+ * - Form validation with Yup schema validation
+ * - TextInput for user input (single-line and multi-line)
+ * - KeyboardAvoidingView for iOS keyboard handling
+ * - ScrollView for scrollable content
+ * - Third-party date picker integration
+ * - Redux dispatch for state management
+ * - ActivityIndicator for loading states
+ * - Responsive sizing with Dimensions API
+ * - Platform-specific behavior (iOS vs Android)
+ */
+
 import React, {useRef, useEffect, useState} from 'react';
+// View: Container component
+// Text: Text display component
+// TextInput: User input component (handles both single-line and multi-line)
+// TouchableOpacity: Touchable button with opacity feedback
+// Modal: Full-screen overlay component
+// KeyboardAvoidingView: Adjusts position when keyboard appears (iOS)
+// Platform: Detects iOS vs Android for platform-specific code
+// Animated: Animation library
+// TouchableWithoutFeedback: Captures touches without visual feedback
+// Dimensions: Gets screen dimensions
+// ScrollView: Scrollable container (like a div with overflow: scroll)
+// ActivityIndicator: Loading spinner component
 import {
   View,
   Text,
@@ -14,17 +47,36 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+// Formik: Form management library (handles values, validation, submission)
 import {Formik} from 'formik';
+// Yup: Schema validation library (works with Formik)
 import * as Yup from 'yup';
+// Third-party date picker component
 import DatePicker from 'react-native-date-picker';
+// Redux hooks for dispatching actions
 import {useAppDispatch} from '../redux/hooks';
 import {createTask} from '../redux/slices/tasksSlice';
 import {COLORS} from '../utils/colors';
 
+/**
+ * Calculate modal height based on screen size
+ * 75% of screen height provides good UX - not too large, not too small
+ */
 const {height: SCREEN_HEIGHT} = Dimensions.get('window');
 const MODAL_HEIGHT = SCREEN_HEIGHT * 0.75;
 
-// Validation Schema
+/**
+ * Form validation schema using Yup
+ *
+ * Yup provides declarative validation:
+ * - Chain validation rules (.trim(), .min(), .max(), .required())
+ * - Automatic error messages
+ * - Type safety with TypeScript
+ *
+ * This schema validates:
+ * - Title: Required, 3-200 characters after trimming whitespace
+ * - Description: Optional, max 1000 characters
+ */
 const taskSchema = Yup.object().shape({
   title: Yup.string()
     .trim()
@@ -36,16 +88,52 @@ const taskSchema = Yup.object().shape({
     .max(1000, 'Description must be less than 1000 characters'),
 });
 
+/**
+ * Props interface for AddTaskModal
+ *
+ * @interface AddTaskModalProps
+ * @property {boolean} visible - Controls modal visibility
+ * @property {() => void} onClose - Callback to close modal
+ */
 interface AddTaskModalProps {
   visible: boolean;
   onClose: () => void;
 }
 
+/**
+ * AddTaskModal - Form modal for creating new tasks
+ *
+ * @component
+ * @example
+ * <AddTaskModal
+ *   visible={showAddModal}
+ *   onClose={() => setShowAddModal(false)}
+ * />
+ */
 export const AddTaskModal: React.FC<AddTaskModalProps> = ({visible, onClose}) => {
+  /**
+   * Redux dispatch for creating tasks
+   * dispatch(createTask(data)) sends action to Redux store
+   */
   const dispatch = useAppDispatch();
+
+  /**
+   * State hooks for date picking
+   *
+   * useState<Date | undefined>:
+   * - Generic type parameter for TypeScript type safety
+   * - undefined when no date selected
+   * - Date object when user picks a deadline
+   */
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  /**
+   * Animation values for bottom sheet
+   *
+   * slideAnim: Starts offscreen (MODAL_HEIGHT), animates to 0 (visible)
+   * backdropOpacity: Fades from 0 (transparent) to 1 (semi-opaque)
+   */
   const slideAnim = useRef(new Animated.Value(MODAL_HEIGHT)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 

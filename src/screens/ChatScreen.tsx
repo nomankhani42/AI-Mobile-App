@@ -1,4 +1,40 @@
+/**
+ * ChatScreen.tsx
+ *
+ * Purpose:
+ * AI chat interface for natural language task management.
+ * Users can create, update, and query tasks using conversational commands.
+ *
+ * Key Features:
+ * - Real-time chat with AI assistant
+ * - Auto-scrolling to latest message
+ * - Typing indicator during AI response
+ * - Multi-line text input with character limit
+ * - Safe area handling for notch devices
+ * - Cross-platform keyboard management
+ *
+ * State Management:
+ * - Redux for chat messages and isTyping state
+ * - Local state for input text
+ * - useRef for FlatList to control scrolling
+ *
+ * Learning Focus:
+ * - FlatList for chat messages (reverse chronological)
+ * - useRef for imperative scrolling
+ * - SafeAreaView for device-specific padding
+ * - KeyboardAvoidingView with platform-specific behavior
+ * - Auto-scroll to latest message on updates
+ */
+
 import React, {useState, useRef, useEffect} from 'react';
+
+/**
+ * React Native Core Components
+ *
+ * SafeAreaView: Handles notch/home indicator padding
+ * KeyboardAvoidingView: Adjusts layout when keyboard appears
+ * FlatList: Scrollable message list
+ */
 import {
   View,
   Text,
@@ -10,9 +46,25 @@ import {
   Platform,
   SafeAreaView,
 } from 'react-native';
+
+/**
+ * Redux Integration
+ */
 import {useAppDispatch, useAppSelector} from '../redux/hooks';
+
+/**
+ * Redux Actions
+ *
+ * sendMessage: Send user message to AI and get response
+ * addUserMessage: Add user message to Redux immediately (optimistic update)
+ * logout: Log user out
+ */
 import {sendMessage, addUserMessage} from '../redux/slices/chatSlice';
 import {logout} from '../redux/slices/authSlice';
+
+/**
+ * Custom Components
+ */
 import {ChatMessage} from '../components/ChatMessage';
 import {TypingIndicator} from '../components/TypingIndicator';
 
@@ -20,13 +72,55 @@ interface ChatScreenProps {
   navigation: any;
 }
 
+/**
+ * ChatScreen Component
+ *
+ * Conversational AI interface for task management.
+ *
+ * Auto-Scroll Behavior:
+ * - Scrolls to bottom when new messages arrive
+ * - Uses setTimeout to ensure DOM is updated before scrolling
+ * - Smooth animation for better UX
+ *
+ * Keyboard Handling:
+ * - iOS: padding behavior (shifts view up)
+ * - Android: height behavior (resizes view)
+ * - keyboardVerticalOffset accounts for header height
+ */
 export const ChatScreen: React.FC<ChatScreenProps> = ({navigation}) => {
+  /**
+   * Local State
+   *
+   * inputText: Current message being typed
+   * flatListRef: Reference to FlatList for imperative scrolling
+   */
   const [inputText, setInputText] = useState('');
   const flatListRef = useRef<FlatList>(null);
+
+  /**
+   * Redux State
+   *
+   * messages: Array of chat messages (user and AI)
+   * isTyping: True when AI is generating response
+   * user: Current authenticated user
+   */
   const dispatch = useAppDispatch();
   const {messages, isTyping} = useAppSelector(state => state.chat);
   const {user} = useAppSelector(state => state.auth);
 
+  /**
+   * Auto-Scroll Effect
+   *
+   * Purpose: Scroll to latest message when messages update
+   *
+   * Dependencies: [messages, isTyping]
+   * - Triggers on new message or typing state change
+   *
+   * setTimeout Delay:
+   * - Ensures FlatList has rendered new message before scrolling
+   * - 100ms is usually enough for render cycle
+   * - Prevents scrolling to wrong position
+   */
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => {
@@ -35,6 +129,22 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({navigation}) => {
     }
   }, [messages, isTyping]);
 
+  /**
+   * Send Message Handler
+   *
+   * Flow:
+   * 1. Validate input (not empty)
+   * 2. Clear input field immediately (better UX)
+   * 3. Add user message to Redux (optimistic update)
+   * 4. Scroll to show new message
+   * 5. Send to AI via Redux thunk
+   * 6. Scroll again when AI response arrives
+   *
+   * Optimistic Update Pattern:
+   * - User message appears immediately
+   * - AI request happens in background
+   * - Better perceived performance
+   */
   const handleSend = async () => {
     if (!inputText.trim()) {
       return;
@@ -43,14 +153,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({navigation}) => {
     const messageText = inputText.trim();
     setInputText('');
 
+    // Add user message immediately (optimistic update)
     dispatch(addUserMessage(messageText));
 
+    // Scroll to show user's message
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({animated: true});
     }, 100);
 
     try {
+      // Send to AI and wait for response
       await dispatch(sendMessage(messageText)).unwrap();
+      // Scroll to show AI response
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({animated: true});
       }, 100);
@@ -59,12 +173,42 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({navigation}) => {
     }
   };
 
+  /**
+   * Logout Handler
+   *
+   * Dispatches logout action to Redux.
+   * Auth middleware handles navigation to login screen.
+   */
   const handleLogout = () => {
     dispatch(logout());
   };
 
+  /**
+   * Render Method
+   *
+   * Layout Structure:
+   * 1. SafeAreaView: Handles notch/home indicator
+   * 2. Header: Title and logout button
+   * 3. KeyboardAvoidingView: Manages keyboard
+   * 4. FlatList: Message history
+   * 5. Input Container: Text input and send button
+   *
+   * SafeAreaView:
+   * - Automatically pads content for iPhone notch
+   * - Also handles home indicator on newer iPhones
+   *
+   * KeyboardAvoidingView:
+   * - keyboardVerticalOffset: Accounts for header height
+   * - Prevents keyboard from covering input
+   *
+   * FlatList Props:
+   * - ref: Allows imperative scrolling
+   * - ListEmptyComponent: Shown on first visit
+   * - ListFooterComponent: Shows typing indicator
+   */
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header with title and logout */}
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>AI Task Assistant</Text>
@@ -75,10 +219,26 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({navigation}) => {
         </TouchableOpacity>
       </View>
 
+      {/**
+       * KeyboardAvoidingView wraps content area
+       * - Adjusts when keyboard appears
+       * - Platform-specific behavior for iOS vs Android
+       */}
       <KeyboardAvoidingView
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+        {/**
+         * FlatList for Chat Messages
+         *
+         * ListEmptyComponent: Onboarding message with examples
+         * - Helps users understand how to interact with AI
+         * - Shows suggested commands
+         *
+         * ListFooterComponent: Typing indicator
+         * - Shown when AI is generating response
+         * - Provides feedback that AI is working
+         */}
         <FlatList
           ref={flatListRef}
           data={messages}
@@ -108,6 +268,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({navigation}) => {
           }
         />
 
+        {/**
+         * Input Container
+         *
+         * TextInput Props:
+         * - multiline: Allows multiple lines
+         * - maxLength: Prevents excessively long messages
+         * - onSubmitEditing: Send on return key (single-line mode)
+         *
+         * Send Button:
+         * - Disabled when input is empty or AI is typing
+         * - Visual feedback via opacity
+         */}
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
